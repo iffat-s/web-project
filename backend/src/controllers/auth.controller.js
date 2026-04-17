@@ -6,7 +6,7 @@ const userRepository = AppDataSource.getRepository("User");
 
 export const register = async (req, res) => {
     try {
-        const { name, email, password, totalPoints, lifeTimePoints } = req.body;
+        const { name, email, password, role, totalPoints, lifeTimePoints } = req.body;
 
         // check existing user
         const existingUser = await userRepository.findOneBy({ email });
@@ -20,6 +20,7 @@ export const register = async (req, res) => {
             name,
             email,
             password: hashedPassword,
+            role: role || "customer" ,// Use provided role or default to "customer"
             totalPoints: totalPoints || 0, // default to 0 if not provided
             lifetimePoints: lifeTimePoints || 0 // default to 0 if not provided
         });
@@ -28,7 +29,7 @@ export const register = async (req, res) => {
 
         // --- JWT ADDITION ---
         const token = jwt.sign(
-            { id: savedUser.id }, 
+            { id: savedUser.id, role: savedUser.role }, 
             process.env.JWT_SECRET || "secret", 
             { expiresIn: "1d" }
         );
@@ -37,6 +38,7 @@ export const register = async (req, res) => {
             message: "User registered successfully",
             token, // Send token back
             user: savedUser
+
         });
     } catch (error) {
         res.status(500).json({
@@ -51,7 +53,7 @@ export const login = async (req, res) => {
        // const user = await userRepository.findOneBy({ email });
        const user = await userRepository.findOne({
         where: { email },
-        select: ["id", "name", "email", "password", "totalPoints", "lifetimePoints"] // Force password selection
+        select: ["id", "name", "email", "password", "role", "totalPoints", "lifetimePoints"] // Force password selection
     });
 
         if (!user) {
@@ -66,18 +68,19 @@ export const login = async (req, res) => {
 
         // --- JWT ADDITION ---
         const token = jwt.sign(
-            { id: user.id }, 
+            { id: user.id, role: user.role }, 
             process.env.JWT_SECRET || "secret", 
             { expiresIn: "1d" }
         );
 
         res.json({
             message: "Login successful",
-            token, // This is the 'VIP Pass' for protected routes
+            token, 
             user: {
                 id: user.id,
                 name: user.name,
                 email: user.email,
+                role: user.role,
                 totalPoints: user.totalPoints,
                 lifetimePoints: user.lifetimePoints
             }

@@ -1,0 +1,84 @@
+{
+  "info": {
+    "_postman_id": "3aeb4c4f-51b1-42bb-a420-0da3c534e7d5",
+    "name": "project (auth) login and singup",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50460154",
+    "_collection_link": "https://go.postman.co/collection/50460154-3aeb4c4f-51b1-42bb-a420-0da3c534e7d5?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "register user",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"name\": \"Admin\",\r\n  \"email\": \"admin@test.com\",\r\n  \"password\": \"securePassword123\",\r\n  \"role\": \"admin\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/auth/register",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "login",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Mywicm9sZSI6ImFkbWluIiwiaWF0IjoxNzc2NDQzNzg0LCJleHAiOjE3NzY1MzAxODR9.4ccuGlb4jd9dbEJaf6FLzCXjATfxtgNUkIlJJGdLxbA",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"admin@test.com\",\r\n  \"password\": \"securePassword123\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

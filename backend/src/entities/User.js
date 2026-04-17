@@ -20,6 +20,11 @@ const User = new EntitySchema({
       type: "varchar",
       select: false // Don't return password by default
     },
+    role: {
+      type: "enum", 
+      enum: ["customer", "admin","manager"], 
+      default: "customer"
+    },
     totalPoints: { 
       type: "int", 
       default: 0 
