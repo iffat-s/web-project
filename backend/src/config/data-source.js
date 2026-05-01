@@ -3,11 +3,15 @@ import { DataSource } from "typeorm";
 import dotenv from "dotenv";
 
 import User from "../entities/User.js";
-import Tier from "../entities/Tier.js";
 import Transaction from "../entities/Transaction.js";
 import Reward from "../entities/Reward.js";
 import Redemption from "../entities/Redemption.js";
-import Badge from "../entities/Badge.js";
+import Brand from "../entities/Brand.js";
+import LoyaltyProfile from "../entities/LoyaltyProfile.js";
+import EarningRule from "../entities/EarningRule.js";
+import Campaign from "../entities/Campaign.js";
+import UserTier from "../entities/UserTier.js";
+import TierLevel from "../entities/TierLevel.js";
 
 
 dotenv.config();
@@ -21,8 +25,18 @@ const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   synchronize: true,
   logging: false,
-  entities: [User, Tier, Transaction, Reward, Redemption, Badge]
-  
+  entities: [
+    User,
+    LoyaltyProfile,
+    Brand,
+    TierLevel,
+    EarningRule,
+    Reward,
+    Campaign,
+    Transaction,
+    Redemption,
+    UserTier
+  ]  
 
 });
 

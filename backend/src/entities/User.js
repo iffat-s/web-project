@@ -21,44 +21,34 @@ const User = new EntitySchema({
     },
     role: {
       type: "enum",
-      enum: ["customer", "admin", "manager", "user"],
-      
+      enum: ["admin", "brand_manager", "customer"],
+      default: "customer"
+    },
+    phone: {
+      type: "varchar",
+      nullable: true
     },
     refreshToken: {
       type: "varchar",
       nullable: true
+    },
+    createdAt: {
+      type: "timestamp",
+      createDate: true
     }
-
   },
-  
   relations: {
-    tier: {
-      target: "Tier",
-      type: "many-to-one",
-      joinColumn: true,
-      inverseSide: "users"
-    },
-    transactions: {
-      target: "Transaction",
-      type: "one-to-many",
+    loyaltyProfile: {
+      target: "LoyaltyProfile",
+      type: "one-to-one",
       inverseSide: "user"
     },
-    redemptions: {
-      target: "Redemption",
+    brands: {
+      target: "Brand",
       type: "one-to-many",
-      inverseSide: "user"
-    },
-   badges: {
-        target: "Badge",
-        type: "many-to-many",
-        joinTable: true, 
-        inverseSide: "users"
-      }
-
+      inverseSide: "manager"
     }
-    
-  
+  }
 });
 
 export default User;
-

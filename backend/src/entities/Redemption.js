@@ -4,25 +4,27 @@ const Redemption = new EntitySchema({
   name: "Redemption",
   tableName: "redemptions",
   columns: {
-    id: 
-    { 
-        primary: true, 
-        type: "int", 
-        generated: true 
+    id: {
+      primary: true,
+      type: "int",
+      generated: true
     },
-    status: 
-    { 
-        type: "varchar", 
-        default: "pending" 
+    pointsSpent: {
+      type: "int"
     },
-    redeemedAt:
-    { 
-        type: "timestamp", 
-        createDate: true }
+    status: {
+      type: "enum",
+      enum: ["pending", "approved", "rejected", "fulfilled"],
+      default: "pending"
+    },
+    redeemedAt: {
+      type: "timestamp",
+      createDate: true
+    }
   },
   relations: {
-    user: {
-      target: "User",
+    loyaltyProfile: {
+      target: "LoyaltyProfile",
       type: "many-to-one",
       joinColumn: true,
       inverseSide: "redemptions"

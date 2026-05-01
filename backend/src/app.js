@@ -3,12 +3,26 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+import AppDataSource from "./config/data-source.js";
+import LoyaltyProfile from "./entities/LoyaltyProfile.js";
+import Reward from "./entities/Reward.js";
 import loggerMiddleware from "./middleware/loggerMiddleware.js";
 import validateRegister from "./middleware/validateRegister.js";
 import validateLogin from "./middleware/validateLogin.js";
 import authMiddleware from "./middleware/authMiddleware.js";
 import roleMiddleware from "./middleware/roleMiddleware.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
+
+// Route Imports
+import brandRoutes from "./routes/brandRoutes.js";
+import campaignRoutes from "./routes/campaignRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import earningruleRoutes from "./routes/earningruleRoutes.js";
+import loyaltyprofileRoutes from "./routes/loyaltyprofilerRoutes.js";
+import redemptionRoutes from "./routes/redemptionRoutes.js";
+import rewardRoutes from "./routes/rewardRoutes.js";
+import tierlevelRoutes from "./routes/tierlevelRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js";
 
 
 const app = express();
@@ -45,7 +59,7 @@ const setupRoutes = (userRepository) => {
 
   // ================= USERS =================
 
-  app.post("/register", async (req, res, next) => {
+  app.post("/register", validateRegister, async (req, res, next) => {
     try {
       const { name, email, password, role } = req.body;
 
@@ -54,18 +68,42 @@ const setupRoutes = (userRepository) => {
         return res.status(400).json({ message: "Email already exists" });
       }
 
+      // Validate role - only allow these 3 roles
+      const validRoles = ["admin", "brand_manager", "customer"];
+      const normalizedRole = (role || "customer").toLowerCase();
+      
+      if (!validRoles.includes(normalizedRole)) {
+        return res.status(400).json({ 
+          message: "Invalid role. Must be one of: admin, brand_manager, customer" 
+        });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const user = userRepository.create({
         name,
         email,
         password: hashedPassword,
-        role: role || "user"
+        role: normalizedRole
       });
 
       const saved = await userRepository.save(user);
 
-      res.status(201).json(saved);
+      // Auto-create loyalty profile for customers only
+      if (normalizedRole === "customer") {
+        const profileRepo = AppDataSource.getRepository(LoyaltyProfile);
+        const profile = profileRepo.create({
+          user: saved,
+          totalPoints: 0,
+          availablePoints: 0,
+          currentTier: "Bronze"
+        });
+        await profileRepo.save(profile);
+      }
+
+      // Sanitize user object - don't return password or refreshToken
+      const { password: pwd, refreshToken, ...safeUser } = saved;
+      res.status(201).json(safeUser);
     } catch (err) {
       next(err);
     }
@@ -94,10 +132,13 @@ const setupRoutes = (userRepository) => {
       user.refreshToken = refreshToken;
       await userRepository.save(user);
 
+      // Sanitize user object - don't return password or refreshToken
+      const { password: pwd, refreshToken: rt, ...safeUser } = user;
+
       res.json({
         accessToken,
         refreshToken,
-        user
+        user: safeUser
       });
     } catch (err) {
       next(err);
@@ -110,7 +151,16 @@ const setupRoutes = (userRepository) => {
     try {
       const { refreshToken } = req.body;
 
-      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      if (!refreshToken) {
+        return res.status(401).json({ message: "Refresh token required" });
+      }
+
+      let decoded;
+      try {
+        decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      } catch (error) {
+        return res.status(403).json({ message: "Invalid or expired refresh token" });
+      }
 
       const user = await userRepository.findOneBy({ id: decoded.id });
 
@@ -144,7 +194,7 @@ const setupRoutes = (userRepository) => {
  
   // ================= USERS LIST =================
 
-  app.get("/users", async (req, res, next) => {
+  app.get("/users", authMiddleware, roleMiddleware("admin"), async (req, res, next) => {
     try {
       const users = await userRepository.find();
 
@@ -155,6 +205,35 @@ const setupRoutes = (userRepository) => {
       next(err);
     }
   });
+
+  // ================= BROWSE ALL REWARDS (for customers) =================
+
+  app.get("/rewards", authMiddleware, async (req, res, next) => {
+    try {
+      const rewardRepo = AppDataSource.getRepository(Reward);
+      const rewards = await rewardRepo.find({
+        where: { isActive: true },
+        relations: ["brand"],
+        order: { id: "ASC" }
+      });
+      res.json(rewards);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ================= MOUNT ROUTE MODULES ==================
+  // All protected routes require authentication
+
+  app.use("/brands", authMiddleware, brandRoutes);
+  app.use("/brands/:brandId/campaigns", authMiddleware, campaignRoutes);
+  app.use("/dashboard", authMiddleware, dashboardRoutes);
+  app.use("/brands/:brandId/rules", authMiddleware, earningruleRoutes);
+  app.use("/loyalty-profiles", authMiddleware, loyaltyprofileRoutes);
+  app.use("/redemptions", authMiddleware, redemptionRoutes);
+  app.use("/brands/:brandId/rewards", authMiddleware, rewardRoutes);
+  app.use("/brands/:brandId/tiers", authMiddleware, tierlevelRoutes);
+  app.use("/transactions", authMiddleware, transactionRoutes);
 
   app.use(errorMiddleware);
 };
