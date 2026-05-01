@@ -1,19 +1,24 @@
-import express from 'express';
-import AppDataSource from './config/data-source.js'; // Your TypeORM config
-import authRoutes from './routes/auth.routes.js';   // We'll create this
+import dotenv from "dotenv";
+import AppDataSource from "./config/data-source.js";
+import app, { setupRoutes } from "./app.js";
 
-const app = express();
-app.use(express.json()); // Essential for reading JSON from requests
+dotenv.config();
 
-// Routes
-// app.use('/api/auth', authRoutes);
-app.use('/api/auth', authRoutes);
-// Initialize DB then Start Server
+const PORT = process.env.PORT || 3000;
+
 AppDataSource.initialize()
-    .then(() => {
-        console.log(" Database Connected");
-        app.listen(3000, () => {
-            console.log(' Server is running on port 3000');
-        });
-    })
-    .catch((error) => console.log(" DB Connection Error: ", error));
+  .then(() => {
+    console.log("Database connected successfully");
+
+    const userRepository = AppDataSource.getRepository("User");
+   
+
+    setupRoutes(userRepository);
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Database connection failed:", error);
+  });

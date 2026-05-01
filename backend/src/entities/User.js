@@ -17,23 +17,20 @@ const User = new EntitySchema({
       unique: true
     },
     password: {
-      type: "varchar",
-      select: false // Don't return password by default
+      type: "varchar"
     },
     role: {
-      type: "enum", 
-      enum: ["customer", "admin","manager"], 
-      default: "customer"
+      type: "enum",
+      enum: ["customer", "admin", "manager", "user"],
+      
     },
-    totalPoints: { 
-      type: "int", 
-      default: 0 
-    },
-    lifetimePoints: { 
-      type: "int", 
-      default: 0 
+    refreshToken: {
+      type: "varchar",
+      nullable: true
     }
+
   },
+  
   relations: {
     tier: {
       target: "Tier",
