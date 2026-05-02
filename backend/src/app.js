@@ -205,6 +205,100 @@ const setupRoutes = (userRepository) => {
       next(err);
     }
   });
+  // ================= GET USER BY ID =================
+  app.get("/users/:id", authMiddleware, async (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      // Check if user is accessing their own profile or is admin
+      if (req.user.id !== userId && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const user = await userRepository.findOneBy({ id: userId });
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { password, refreshToken, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ================= UPDATE USER =================
+  app.put("/users/:id", authMiddleware, async (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { name, email, password, role } = req.body;
+      
+      // Check if user is updating their own profile or is admin
+      if (req.user.id !== userId && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Only admins can change roles
+      if (role && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Only admins can change roles" });
+      }
+
+      const user = await userRepository.findOneBy({ id: userId });
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update fields
+      if (name) user.name = name;
+      if (email) user.email = email;
+      if (role && req.user.role === "admin") user.role = role;
+      
+      if (password) {
+        user.password = await bcrypt.hash(password, 10);
+      }
+
+      const updated = await userRepository.save(user);
+      
+      const { password: pwd, refreshToken, ...safeUser } = updated;
+      res.json(safeUser);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ================= DELETE USER =================
+  app.delete("/users/:id", authMiddleware, roleMiddleware("admin"), async (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      const user = await userRepository.findOneBy({ id: userId });
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Don't allow deleting yourself
+      if (user.id === req.user.id) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      // Delete associated loyalty profile if exists
+      const loyaltyProfileRepo = AppDataSource.getRepository(LoyaltyProfile);
+      const profile = await loyaltyProfileRepo.findOneBy({ user: { id: userId } });
+      if (profile) {
+        await loyaltyProfileRepo.remove(profile);
+      }
+
+      await userRepository.remove(user);
+      
+      res.json({ message: "User deleted successfully" });
+    } catch (err) {
+      next(err);
+    }
+  });
+
 
   // ================= BROWSE ALL REWARDS (for customers) =================
 
