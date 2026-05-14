@@ -21,7 +21,6 @@ export const redeemReward = createAsyncThunk(
       const response = await redemptionAPI.redeem(rewardId)
       toast.success('Reward redeemed successfully!')
       dispatch(fetchRewards())
-      dispatch(fetchLoyaltyProfile())
       return response.data
     } catch (error) {
       const message = error.response?.data?.message || 'Redemption failed'
