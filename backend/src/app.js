@@ -1,8 +1,4 @@
 // 
-// In your backend app.js
-import cors from 'cors'
-
-
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -32,10 +28,7 @@ import transactionRoutes from "./routes/transactionRoutes.js";
 const app = express();
 app.use(express.json());
 app.use(loggerMiddleware);
-app.use(cors({
-  origin: 'http://localhost:5173',  // Your Vite frontend URL
-  credentials: true
-}))
+
 // ================= TOKEN HELPERS =================
 const generateAccessToken = (user) => {
   return jwt.sign(
