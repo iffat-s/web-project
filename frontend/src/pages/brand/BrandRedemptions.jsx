@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
+import useBrand from '../../hooks/useBrand';
 import { redemptionsApi } from '../../api/client';
 import { LoadingPage, StatusBadge, FiltersBar, fmtDateTime, fmt, Empty } from '../../components/common';
 import toast from 'react-hot-toast';
 
 export default function BrandRedemptions() {
+  const { brand, loading: bLoading } = useBrand();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    redemptionsApi.getAll().then(r => setItems(r.data)).finally(() => setLoading(false));
-  }, []);
+    if (!brand) return;
+    redemptionsApi.getAll().then(r => {
+      // Filter redemptions for this brand
+      const filtered = r.data.filter(rd => rd.reward?.brand?.id === brand.id);
+      setItems(filtered);
+    }).finally(() => setLoading(false));
+  }, [brand]);
 
   async function updateStatus(id, status) {
     try {
@@ -28,13 +35,13 @@ export default function BrandRedemptions() {
     return mQ && mS;
   });
 
-  if (loading) return <LoadingPage />;
+  if (bLoading || loading) return <LoadingPage />;
 
   return (
     <div>
       <div className="page-header">
         <div><h1 className="page-title">Redemptions</h1>
-          <p className="page-sub">{items.length} redemption requests</p></div>
+          <p className="page-sub">{brand?.name} · {items.length} requests</p></div>
       </div>
       <FiltersBar search={search} onSearch={setSearch}>
         <select className="input input-sm" style={{ width: 140 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>

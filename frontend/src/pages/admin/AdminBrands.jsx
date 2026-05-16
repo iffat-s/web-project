@@ -1,36 +1,85 @@
 import { useEffect, useState } from 'react';
 import { brandsApi } from '../../api/client';
 import { LoadingPage, Modal, FormGroup, StatusBadge, ConfirmModal, fmtDate, Empty } from '../../components/common';
-import { Plus, Pencil, Trash2, Store } from 'lucide-react';
+import { Plus, Pencil, Trash2, Store, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminBrands() {
   const [brands, setBrands] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // null | 'create' | brand obj
-  const [form, setForm] = useState({ name: '', logoUrl: '' });
+  const [assignModal, setAssignModal] = useState(null); // null | brand obj
+  const [form, setForm] = useState({ name: '', logoUrl: '', managerId: '' });
+  const [assignForm, setAssignForm] = useState({ managerId: '' });
   const [deleteId, setDeleteId] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(); }, []);
-  function load() { brandsApi.getAll().then(r => setBrands(r.data)).finally(() => setLoading(false)); }
-  function openCreate() { setForm({ name: '', logoUrl: '' }); setModal('create'); }
-  function openEdit(b) { setForm({ name: b.name, logoUrl: b.logoUrl || '' }); setModal(b); }
+
+  async function load() {
+    try {
+      const [brandsRes, managersRes] = await Promise.all([
+        brandsApi.getAll(),
+        brandsApi.getUnassignedManagers()
+      ]);
+      setBrands(brandsRes.data);
+      setManagers(managersRes.data);
+    } catch (e) {
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openCreate() { 
+    setForm({ name: '', logoUrl: '', managerId: '' }); 
+    setModal('create'); 
+  }
+
+  function openEdit(b) { 
+    setForm({ name: b.name, logoUrl: b.logoUrl || '', managerId: b.manager?.id || '' }); 
+    setModal(b); 
+  }
+
+  function openAssign(b) {
+    setAssignForm({ managerId: b.manager?.id || '' });
+    setAssignModal(b);
+  }
 
   async function handleSave() {
     setSaving(true);
     try {
       if (modal === 'create') {
-        const r = await brandsApi.create(form);
+        const createData = { name: form.name, logoUrl: form.logoUrl };
+        if (form.managerId) createData.managerId = Number(form.managerId);
+        const r = await brandsApi.create(createData);
         setBrands(p => [...p, r.data]);
         toast.success('Brand created');
       } else {
-        const r = await brandsApi.update(modal.id, form);
+        const r = await brandsApi.update(modal.id, { name: form.name, logoUrl: form.logoUrl });
         setBrands(p => p.map(x => x.id === modal.id ? r.data : x));
         toast.success('Brand updated');
       }
       setModal(null);
-    } catch (e) { toast.error(e.response?.data?.message || 'Error'); }
+      await load(); // Reload to refresh manager list
+    } catch (e) { 
+      toast.error(e.response?.data?.message || 'Error'); 
+    }
+    setSaving(false);
+  }
+
+  async function handleAssign() {
+    setSaving(true);
+    try {
+      const r = await brandsApi.assignManager(assignModal.id, assignForm.managerId ? Number(assignForm.managerId) : null);
+      setBrands(p => p.map(x => x.id === assignModal.id ? r.data : x));
+      toast.success('Brand manager assigned');
+      setAssignModal(null);
+      await load(); // Reload to refresh manager list
+    } catch (e) { 
+      toast.error(e.response?.data?.message || 'Error'); 
+    }
     setSaving(false);
   }
 
@@ -39,6 +88,7 @@ export default function AdminBrands() {
     setBrands(p => p.filter(x => x.id !== deleteId));
     setDeleteId(null);
     toast.success('Brand deleted');
+    await load();
   }
 
   if (loading) return <LoadingPage />;
@@ -65,6 +115,7 @@ export default function AdminBrands() {
                   <td className="text-muted">{fmtDate(b.createdAt)}</td>
                   <td>
                     <div className="flex gap-2">
+                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openAssign(b)} title="Assign Manager"><Users size={13} /></button>
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(b)}><Pencil size={13} /></button>
                       <button className="btn btn-danger btn-icon btn-sm" onClick={() => setDeleteId(b.id)}><Trash2 size={13} /></button>
                     </div>
@@ -84,10 +135,42 @@ export default function AdminBrands() {
           <FormGroup label="Logo URL (optional)">
             <input className="input" placeholder="https://..." value={form.logoUrl} onChange={e => setForm(p => ({ ...p, logoUrl: e.target.value }))} />
           </FormGroup>
+          {modal === 'create' && (
+            <FormGroup label="Brand Manager (optional)">
+              <select className="input" value={form.managerId} onChange={e => setForm(p => ({ ...p, managerId: e.target.value }))}>
+                <option value="">— No manager —</option>
+                {managers.map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
+                ))}
+              </select>
+            </FormGroup>
+          )}
           <div className="flex gap-3 mt-4">
             <button className="btn btn-ghost w-full" onClick={() => setModal(null)}>Cancel</button>
             <button className="btn btn-primary w-full" onClick={handleSave} disabled={saving || !form.name}>
               {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {assignModal && (
+        <Modal title={`Assign Manager: ${assignModal.name}`} onClose={() => setAssignModal(null)}>
+          <FormGroup label="Brand Manager">
+            <select className="input" value={assignForm.managerId} onChange={e => setAssignForm(p => ({ ...p, managerId: e.target.value }))}>
+              <option value="">— Unassign —</option>
+              {assignModal.manager && (
+                <option value={assignModal.manager.id}>{assignModal.manager.name} ({assignModal.manager.email}) [Current]</option>
+              )}
+              {managers.map(m => (
+                <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
+              ))}
+            </select>
+          </FormGroup>
+          <div className="flex gap-3 mt-4">
+            <button className="btn btn-ghost w-full" onClick={() => setAssignModal(null)}>Cancel</button>
+            <button className="btn btn-primary w-full" onClick={handleAssign} disabled={saving}>
+              {saving ? 'Assigning…' : 'Assign'}
             </button>
           </div>
         </Modal>

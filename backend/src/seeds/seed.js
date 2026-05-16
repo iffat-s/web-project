@@ -1,4 +1,5 @@
-// 
+// seed.js
+import 'dotenv/config';
 import AppDataSource from "../config/data-source.js";
 
 import User from "../entities/User.js";
@@ -16,7 +17,7 @@ import bcrypt from "bcrypt";
 
 async function seed() {
   await AppDataSource.initialize();
-  console.log("DB Connected");
+  console.log("✅ DB Connected");
 
   // Repos
   const userRepo = AppDataSource.getRepository(User);
@@ -30,12 +31,11 @@ async function seed() {
   const redemptionRepo = AppDataSource.getRepository(Redemption);
   const userTierRepo = AppDataSource.getRepository(UserTier);
 
-  // Clear old data (optional but useful)
-  // Order matters because of foreign keys
+  // Clear old data (order matters due to foreign keys)
   await AppDataSource.query(`
     TRUNCATE TABLE 
-      transactions,
       redemptions,
+      transactions,
       user_tiers,
       rewards,
       campaigns,
@@ -47,170 +47,258 @@ async function seed() {
     RESTART IDENTITY CASCADE;
   `);
 
-  console.log("Old data cleared");
+  console.log("🗑️ Old data cleared");
 
   // ================= USERS =================
+  // 1 Admin, 3 Brand Managers, 5 Customers
   const users = [];
+  
+  // Create Admin
+  const admin = userRepo.create({
+    name: "Admin User",
+    email: "admin@example.com",
+    password: await bcrypt.hash("admin123", 10),
+    role: "admin",
+  });
+  users.push(await userRepo.save(admin));
+  console.log("✅ Admin created");
 
-  for (let i = 1; i <= 10; i++) {
-    const role =
-      i === 1 ? "admin" : i <= 4 ? "brand_manager" : "customer";
-
-    const user = userRepo.create({
-      name: `User ${i}`,
-      email: `user${i}@test.com`,
-      password: await bcrypt.hash("123456", 10),
-      role,
+  // Create Brand Managers (3 managers, each will get 1 brand)
+  const brandManagers = [];
+  const managerNames = ["Nike", "Adidas", "Puma"];
+  for (let i = 0; i < 3; i++) {
+    const manager = userRepo.create({
+      name: `${managerNames[i]} Manager`,
+      email: `${managerNames[i].toLowerCase()}@example.com`,
+      password: await bcrypt.hash("manager123", 10),
+      role: "brand_manager",
     });
-
-    users.push(await userRepo.save(user));
+    brandManagers.push(await userRepo.save(manager));
+    console.log(`✅ ${managerNames[i]} Manager created`);
   }
 
-  console.log("Users created");
+  // Create Customers (5 customers)
+  const customers = [];
+  const customerNames = ["John", "Sarah", "Mike", "Emma", "David"];
+  for (let i = 0; i < 5; i++) {
+    const customer = userRepo.create({
+      name: `${customerNames[i]} Customer`,
+      email: `${customerNames[i].toLowerCase()}@example.com`,
+      password: await bcrypt.hash("customer123", 10),
+      role: "customer",
+    });
+    customers.push(await userRepo.save(customer));
+    console.log(`✅ Customer ${customerNames[i]} created`);
+  }
 
-  // ================= LOYALTY PROFILES =================
-  const customers = users.filter((u) => u.role === "customer");
+  console.log(`\n📊 Total users created: ${users.length + brandManagers.length + customers.length}`);
 
+  // ================= BRANDS (One-to-One with Brand Managers) =================
+  const brands = [];
+  const brandData = [
+    { name: "Nike", logoUrl: "https://example.com/nike-logo.png", manager: brandManagers[0] },
+    { name: "Adidas", logoUrl: "https://example.com/adidas-logo.png", manager: brandManagers[1] },
+    { name: "Puma", logoUrl: "https://example.com/puma-logo.png", manager: brandManagers[2] },
+  ];
+
+  for (const data of brandData) {
+    const brand = brandRepo.create({
+      name: data.name,
+      logoUrl: data.logoUrl,
+      manager: data.manager,
+      isActive: true,
+    });
+    brands.push(await brandRepo.save(brand));
+    console.log(`✅ Brand ${data.name} created with manager ${data.manager.name}`);
+  }
+
+  // ================= LOYALTY PROFILES (For Customers Only) =================
   const profiles = [];
+  const tierOptions = ["Bronze", "Silver", "Gold", "Platinum"];
+  
   for (let i = 0; i < customers.length; i++) {
     const profile = profileRepo.create({
       user: customers[i],
-      totalPoints: Math.floor(Math.random() * 1000),
-      availablePoints: Math.floor(Math.random() * 500),
-      currentTier: "Bronze",
+      totalPoints: Math.floor(Math.random() * 2000),
+      availablePoints: Math.floor(Math.random() * 1500),
+      currentTier: tierOptions[i % tierOptions.length],
     });
-
     profiles.push(await profileRepo.save(profile));
+    console.log(`✅ Loyalty profile created for ${customers[i].name} (${profile.currentTier} tier)`);
   }
 
-  console.log("Profiles created");
-
-  // ================= BRANDS =================
-  const managers = users.filter((u) => u.role === "brand_manager");
-
-  const brands = [];
-  for (let i = 0; i < 10; i++) {
-    const brand = brandRepo.create({
-      name: `Brand ${i + 1}`,
-      logoUrl: "",
-      manager: managers[i % managers.length],
-    });
-
-    brands.push(await brandRepo.save(brand));
-  }
-
-  console.log("Brands created");
-
-  // ================= TIERS =================
+  // ================= TIER LEVELS (Per Brand) =================
   const tiers = [];
+  const tierLevels = [
+    { name: "Bronze", minPoints: 0, perks: ["Basic support", "Welcome offer"] },
+    { name: "Silver", minPoints: 500, perks: ["Priority support", "5% bonus points"] },
+    { name: "Gold", minPoints: 1500, perks: ["VIP support", "10% bonus points", "Birthday reward"] },
+    { name: "Platinum", minPoints: 3000, perks: ["24/7 support", "20% bonus points", "Free shipping", "Exclusive events"] },
+  ];
 
-  for (let i = 0; i < 10; i++) {
-    const tier = tierRepo.create({
-      name: ["Bronze", "Silver", "Gold", "Platinum"][i % 4],
-      minPoints: i * 100,
-      brand: brands[i % brands.length],
-    });
-
-    tiers.push(await tierRepo.save(tier));
+  for (const brand of brands) {
+    for (const tier of tierLevels) {
+      const newTier = tierRepo.create({
+        name: tier.name,
+        minPoints: tier.minPoints,
+        perks: tier.perks,
+        badgeIcon: `${brand.name}-${tier.name}.png`,
+        brand: brand,
+      });
+      tiers.push(await tierRepo.save(newTier));
+    }
+    console.log(`✅ Tier levels created for ${brand.name}`);
   }
 
-  console.log("Tiers created");
-
-  // ================= EARNING RULES =================
-  for (let i = 0; i < 10; i++) {
-    await ruleRepo.save(
-      ruleRepo.create({
-        ruleType: "purchase",
-        pointsPerUnit: 1 + i,
-        minPurchase: 100,
-        brand: brands[i % brands.length],
-      })
-    );
+  // ================= EARNING RULES (Per Brand) =================
+  const earningRules = [];
+  const ruleTypes = ["purchase", "flat", "category"];
+  
+  for (const brand of brands) {
+    // Create 2 earning rules per brand
+    for (let i = 0; i < 2; i++) {
+      const rule = ruleRepo.create({
+        ruleType: ruleTypes[i % ruleTypes.length],
+        pointsPerUnit: i === 0 ? 10 : 5,
+        minPurchase: i === 0 ? 100 : 50,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 365 * 86400000), // 1 year
+        isActive: true,
+        brand: brand,
+      });
+      earningRules.push(await ruleRepo.save(rule));
+    }
+    console.log(`✅ Earning rules created for ${brand.name}`);
   }
 
-  console.log("Rules created");
-
-  // ================= CAMPAIGNS =================
+  // ================= CAMPAIGNS (Per Brand) =================
   const campaigns = [];
-
-  for (let i = 0; i < 10; i++) {
-    const campaign = campaignRepo.create({
-      name: `Campaign ${i + 1}`,
-      bonusMultiplier: 1.5,
-      startDate: new Date(),
-      endDate: new Date(Date.now() + 7 * 86400000),
-      brand: brands[i % brands.length],
-    });
-
-    campaigns.push(await campaignRepo.save(campaign));
+  const campaignNames = ["Summer Sale", "Winter Special", "Holiday Bonus", "Weekend Flash"];
+  
+  for (const brand of brands) {
+    for (let i = 0; i < campaignNames.length; i++) {
+      const campaign = campaignRepo.create({
+        name: `${brand.name} ${campaignNames[i]}`,
+        bonusMultiplier: 1.5 + (i * 0.5),
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 86400000), // 30 days
+        isActive: true,
+        brand: brand,
+      });
+      campaigns.push(await campaignRepo.save(campaign));
+    }
+    console.log(`✅ Campaigns created for ${brand.name}`);
   }
 
-  console.log("Campaigns created");
-
-  // ================= REWARDS =================
+  // ================= REWARDS (Per Brand) =================
   const rewards = [];
+  const rewardTemplates = [
+    { title: "Free Coffee", pointsRequired: 100, description: "Get a free coffee" },
+    { title: "$10 Voucher", pointsRequired: 500, description: "$10 store credit" },
+    { title: "$25 Voucher", pointsRequired: 1200, description: "$25 store credit" },
+    { title: "Free Product", pointsRequired: 2000, description: "Choose any product under $50" },
+  ];
 
-  for (let i = 0; i < 10; i++) {
-    const reward = rewardRepo.create({
-      title: `Reward ${i + 1}`,
-      description: "Sample reward",
-      pointsRequired: 100 + i * 50,
-      stock: 10,
-      brand: brands[i % brands.length],
-    });
-
-    rewards.push(await rewardRepo.save(reward));
+  for (const brand of brands) {
+    for (const template of rewardTemplates) {
+      const reward = rewardRepo.create({
+        title: `${brand.name} ${template.title}`,
+        description: template.description,
+        pointsRequired: template.pointsRequired,
+        stock: 50,
+        isActive: true,
+        expiresAt: new Date(Date.now() + 180 * 86400000), // 6 months
+        brand: brand,
+      });
+      rewards.push(await rewardRepo.save(reward));
+    }
+    console.log(`✅ Rewards created for ${brand.name}`);
   }
 
-  console.log("Rewards created");
-
-  // ================= USER TIERS =================
-  for (let i = 0; i < profiles.length; i++) {
-    await userTierRepo.save(
-      userTierRepo.create({
-        loyaltyProfile: profiles[i],
-        tierLevel: tiers[i % tiers.length],
-        brand: brands[i % brands.length],
-      })
-    );
+  // ================= USER TIERS (Assign tiers to customers per brand) =================
+  for (const profile of profiles) {
+    for (const brand of brands) {
+      // Assign a random tier for each brand
+      const brandTiers = tiers.filter(t => t.brand.id === brand.id);
+      const randomTier = brandTiers[Math.floor(Math.random() * brandTiers.length)];
+      
+      const userTier = userTierRepo.create({
+        loyaltyProfile: profile,
+        tierLevel: randomTier,
+        brand: brand,
+        assignedAt: new Date(),
+      });
+      await userTierRepo.save(userTier);
+    }
   }
-
-  console.log("User tiers created");
+  console.log(`✅ User tiers assigned`);
 
   // ================= TRANSACTIONS =================
-  const transactions = [];
-
-  for (let i = 0; i < 10; i++) {
+  const transactionTypes = ["earn", "redeem", "adjust"];
+  
+  for (let i = 0; i < 30; i++) {
+    const profile = profiles[i % profiles.length];
+    const brand = brands[i % brands.length];
+    const type = transactionTypes[i % transactionTypes.length];
+    const points = type === "earn" ? Math.floor(Math.random() * 500) + 50 : Math.floor(Math.random() * 200) + 20;
+    
     const transaction = transactionRepo.create({
-      type: i % 2 === 0 ? "earn" : "redeem",
-      points: 100,
-      purchaseAmount: 500,
-      referenceNo: `REF${i}`,
-      loyaltyProfile: profiles[i % profiles.length],
-      brand: brands[i % brands.length],
+      type: type,
+      points: type === "earn" ? points : -points,
+      purchaseAmount: type === "earn" ? points * 10 : null,
+      referenceNo: `TXN${Date.now()}${i}`,
+      createdAt: new Date(Date.now() - i * 86400000), // Spread over last i days
+      loyaltyProfile: profile,
+      brand: brand,
       campaign: campaigns[i % campaigns.length],
     });
-
-    transactions.push(await transactionRepo.save(transaction));
+    await transactionRepo.save(transaction);
   }
-
-  console.log("Transactions created");
+  console.log(`✅ Transactions created`);
 
   // ================= REDEMPTIONS =================
-  for (let i = 0; i < 10; i++) {
-    await redemptionRepo.save(
-      redemptionRepo.create({
-        pointsSpent: 100,
-        loyaltyProfile: profiles[i % profiles.length],
-        reward: rewards[i % rewards.length],
-      })
-    );
+  for (let i = 0; i < 20; i++) {
+    const profile = profiles[i % profiles.length];
+    const reward = rewards[i % rewards.length];
+    const statuses = ["pending", "approved", "fulfilled", "rejected"];
+    
+    const redemption = redemptionRepo.create({
+      pointsSpent: reward.pointsRequired,
+      status: statuses[i % statuses.length],
+      redeemedAt: new Date(Date.now() - i * 86400000),
+      loyaltyProfile: profile,
+      reward: reward,
+    });
+    await redemptionRepo.save(redemption);
   }
+  console.log(`✅ Redemptions created`);
 
-  console.log("Redemptions created");
+  console.log("\n🎉 SEEDING COMPLETED SUCCESSFULLY!");
+  console.log("\n📝 TEST CREDENTIALS:");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("ADMIN ACCOUNTS:");
+  console.log("  Admin:       admin@example.com / admin123");
+  console.log("\nBRAND MANAGER ACCOUNTS (Each manages ONE brand):");
+  console.log("  Nike:        nike@example.com / manager123");
+  console.log("  Adidas:      adidas@example.com / manager123");
+  console.log("  Puma:        puma@example.com / manager123");
+  console.log("\nCUSTOMER ACCOUNTS:");
+  console.log("  John:        john@example.com / customer123");
+  console.log("  Sarah:       sarah@example.com / customer123");
+  console.log("  Mike:        mike@example.com / customer123");
+  console.log("  Emma:        emma@example.com / customer123");
+  console.log("  David:       david@example.com / customer123");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("\n🔗 BRAND ASSIGNMENTS (One-to-One):");
+  for (const brand of brands) {
+    console.log(`  • ${brand.manager.name} → manages → ${brand.name}`);
+  }
+  console.log("\n✨ Database is ready to use!");
 
-  console.log("🎉 SEEDING DONE!");
-  process.exit();
+  process.exit(0);
 }
 
-seed();
+seed().catch(error => {
+  console.error("❌ Seeding failed:", error);
+  process.exit(1);
+});

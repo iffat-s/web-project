@@ -68,9 +68,12 @@ export const usersApi = {
 export const brandsApi = {
   getAll: () => api.get('/brands'),
   getById: (id) => api.get(`/brands/${id}`),
+  getMyBrand: () => api.get('/brands/my-brand'),
   create: (data) => api.post('/brands', data),
   update: (id, data) => api.put(`/brands/${id}`, data),
   delete: (id) => api.delete(`/brands/${id}`),
+  assignManager: (id, managerId) => api.put(`/brands/${id}/assign-manager`, { managerId }),
+  getUnassignedManagers: () => api.get('/brands/unassigned-managers'),
 };
 
 // ─── CAMPAIGNS ───────────────────────────────────────────────────────────────

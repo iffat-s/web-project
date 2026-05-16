@@ -43,10 +43,11 @@ const User = new EntitySchema({
       type: "one-to-one",
       inverseSide: "user"
     },
-    brands: {
+    brand: {
       target: "Brand",
-      type: "one-to-many",
-      inverseSide: "manager"
+      type: "one-to-one",
+      inverseSide: "manager",
+      nullable: true
     }
   }
 });

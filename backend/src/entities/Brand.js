@@ -16,6 +16,11 @@ const Brand = new EntitySchema({
       type: "varchar",
       nullable: true
     },
+    managerId: {
+      type: "int",
+      nullable: true,
+      unique: true
+    },
     isActive: {
       type: "boolean",
       default: true
@@ -28,9 +33,9 @@ const Brand = new EntitySchema({
   relations: {
     manager: {
       target: "User",
-      type: "many-to-one",
-      joinColumn: true,
-      inverseSide: "brands"
+      type: "one-to-one",
+      joinColumn: { name: "managerId" },
+      inverseSide: "brand"
     },
     tierLevels: {
       target: "TierLevel",

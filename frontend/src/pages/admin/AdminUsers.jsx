@@ -55,6 +55,16 @@ export default function AdminUsers() {
     { accessorKey: 'email', header: 'Email', cell: i => <span className="text-muted">{i.getValue()}</span> },
     { accessorKey: 'role', header: 'Role', cell: i => <StatusBadge status={i.getValue()} /> },
     { accessorKey: 'phone', header: 'Phone', cell: i => i.getValue() || '—' },
+    { 
+      id: 'brand', 
+      header: 'Brand', 
+      cell: ({ row }) => {
+        const user = row.original;
+        return user.role === 'brand_manager' 
+          ? <span className="text-muted">{user.brand?.name || '— Not assigned —'}</span>
+          : '—';
+      }
+    },
     { accessorKey: 'createdAt', header: 'Joined', cell: i => fmtDate(i.getValue()) },
     {
       id: 'actions', header: '', size: 60,

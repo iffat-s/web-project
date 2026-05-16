@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react';
+import useBrand from '../../hooks/useBrand';
 import { transactionsApi } from '../../api/client';
 import { LoadingPage, StatusBadge, FiltersBar, fmtDateTime, fmt, Empty } from '../../components/common';
 
 export default function BrandTransactions() {
+  const { brand, loading: bLoading } = useBrand();
   const [txns, setTxns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
   useEffect(() => {
-    transactionsApi.getAll().then(r => setTxns(r.data)).finally(() => setLoading(false));
-  }, []);
+    if (!brand) return;
+    transactionsApi.getAll().then(r => {
+      // Filter transactions for this brand
+      const filtered = r.data.filter(t => t.brand?.id === brand.id);
+      setTxns(filtered);
+    }).finally(() => setLoading(false));
+  }, [brand]);
 
   const filtered = txns.filter(t => {
     const q = search.toLowerCase();
@@ -19,13 +26,13 @@ export default function BrandTransactions() {
     return mQ && mT;
   });
 
-  if (loading) return <LoadingPage />;
+  if (bLoading || loading) return <LoadingPage />;
 
   return (
     <div>
       <div className="page-header">
         <div><h1 className="page-title">Transactions</h1>
-          <p className="page-sub">{txns.length} total</p></div>
+          <p className="page-sub">{brand?.name} · {txns.length} total</p></div>
       </div>
       <FiltersBar search={search} onSearch={setSearch}>
         <select className="input input-sm" style={{ width: 140 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
