@@ -18,12 +18,10 @@ export default function CustomerRedemptions() {
     <div>
       <div className="page-header">
         <div><h1 className="page-title">My Redemptions</h1>
-          <p className="page-sub">{items.length} redemption requests</p></div>
+          <p className="page-sub">{items.length} rewards redeemed</p></div>
         <select className="input input-sm" style={{ width: 160 }} value={filter} onChange={e => setFilter(e.target.value)}>
           <option value="">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
+          <option value="redeemed">Redeemed</option>
           <option value="fulfilled">Fulfilled</option>
         </select>
       </div>

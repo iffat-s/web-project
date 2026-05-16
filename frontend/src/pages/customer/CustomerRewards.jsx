@@ -36,7 +36,7 @@ export default function CustomerRewards() {
     try {
       await redemptionsApi.redeem({ rewardId: rw.id, brandId: Number(selectedBrand) });
       setProfile(p => ({ ...p, availablePoints: p.availablePoints - rw.pointsRequired }));
-      toast.success(`Redeemed "${rw.title}"! Awaiting approval.`);
+      toast.success('Reward redeemed successfully!');
       setConfirmRedeem(null);
     } catch (e) { toast.error(e.response?.data?.message || 'Redemption failed'); }
     setRedeeming(false);

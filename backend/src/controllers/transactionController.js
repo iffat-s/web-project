@@ -1,4 +1,4 @@
-// 
+
 import AppDataSource from "../config/data-source.js";
 import Transaction from "../entities/Transaction.js";
 import LoyaltyProfile from "../entities/LoyaltyProfile.js";
@@ -39,7 +39,7 @@ const assignTier = async (profile, brandId) => {
 };
 
 // ✅ EXPORT earnPoints
-// export const earnPoints = async (req, res) => {
+ export const earnPoints = async (req, res) => {
   try {
     const { purchaseAmount, brandId, referenceNo } = req.body;
 
@@ -119,7 +119,7 @@ const assignTier = async (profile, brandId) => {
     console.error('Stack trace:', err.stack);
     res.status(500).json({ message: err.message, stack: err.stack });
   }
-
+ };
 // ✅ EXPORT getMyTransactions
 export const getMyTransactions = async (req, res) => {
   try {

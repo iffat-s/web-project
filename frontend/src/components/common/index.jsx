@@ -21,6 +21,7 @@ export function StatusBadge({ status }) {
     pending: 'badge-warn',
     approved: 'badge-success',
     rejected: 'badge-error',
+    redeemed: 'badge-success',
     fulfilled: 'badge-info',
     active: 'badge-success',
     inactive: 'badge-neutral',
@@ -31,7 +32,11 @@ export function StatusBadge({ status }) {
     true: 'badge-success',
     false: 'badge-neutral',
   };
-  return <span className={`badge ${map[String(status)] || 'badge-neutral'}`}>{String(status)}</span>;
+  const labels = {
+    redeemed: 'Redeemed ✓',
+  };
+  const displayLabel = labels[String(status)] || String(status);
+  return <span className={`badge ${map[String(status)] || 'badge-neutral'}`}>{displayLabel}</span>;
 }
 
 // ─── TIER BADGE ───────────────────────────────────────────────────────────────

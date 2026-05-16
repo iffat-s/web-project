@@ -20,11 +20,11 @@ export default function BrandRedemptions() {
     }).finally(() => setLoading(false));
   }, [brand]);
 
-  async function updateStatus(id, status) {
+  async function markFulfilled(id) {
     try {
-      const r = await redemptionsApi.updateStatus(id, status);
+      const r = await redemptionsApi.updateStatus(id, 'fulfilled');
       setItems(p => p.map(x => x.id === id ? { ...x, status: r.data.status } : x));
-      toast.success(`Marked as ${status}`);
+      toast.success('Marked as fulfilled');
     } catch { toast.error('Update failed'); }
   }
 
@@ -41,14 +41,12 @@ export default function BrandRedemptions() {
     <div>
       <div className="page-header">
         <div><h1 className="page-title">Redemptions</h1>
-          <p className="page-sub">{brand?.name} · {items.length} requests</p></div>
+          <p className="page-sub">{brand?.name} · {items.length} redemptions</p></div>
       </div>
       <FiltersBar search={search} onSearch={setSearch}>
         <select className="input input-sm" style={{ width: 140 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
+          <option value="redeemed">Redeemed</option>
           <option value="fulfilled">Fulfilled</option>
         </select>
       </FiltersBar>
@@ -65,16 +63,10 @@ export default function BrandRedemptions() {
                   <td><StatusBadge status={r.status} /></td>
                   <td className="text-muted">{fmtDateTime(r.redeemedAt)}</td>
                   <td>
-                    {r.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <button className="btn btn-sm" style={{ background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid rgba(74,222,128,0.2)' }} onClick={() => updateStatus(r.id, 'approved')}>Approve</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => updateStatus(r.id, 'rejected')}>Reject</button>
-                      </div>
+                    {r.status === 'redeemed' && (
+                      <button className="btn btn-sm" style={{ background: 'var(--info-bg)', color: 'var(--info)', border: '1px solid rgba(96,165,250,0.2)' }} onClick={() => markFulfilled(r.id)}>Mark Fulfilled</button>
                     )}
-                    {r.status === 'approved' && (
-                      <button className="btn btn-sm" style={{ background: 'var(--info-bg)', color: 'var(--info)', border: '1px solid rgba(96,165,250,0.2)' }} onClick={() => updateStatus(r.id, 'fulfilled')}>Fulfill</button>
-                    )}
-                    {(r.status === 'rejected' || r.status === 'fulfilled') && <span className="text-muted">—</span>}
+                    {r.status === 'fulfilled' && <span className="text-muted">—</span>}
                   </td>
                 </tr>
               ))}
