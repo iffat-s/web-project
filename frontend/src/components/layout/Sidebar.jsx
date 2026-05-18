@@ -1,10 +1,12 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+// // Sidebar.jsx
+import { useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
 import useBrand from '../../hooks/useBrand';
 import {
   LayoutDashboard, Users, Store, Gift, CreditCard, BarChart3,
-  Star, LogOut, ShoppingBag, Repeat, Tag, FileText, Trophy, AlertCircle
+  Star, LogOut, ShoppingBag, Repeat, Tag, FileText, Trophy, AlertCircle, Menu, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -42,10 +44,12 @@ function roleLinks(role) {
 }
 
 export default function Sidebar() {
+  const [open, setOpen] = useState(false);
   const { user } = useSelector((s) => s.auth);
-  const { brand, loading: brandLoading, error: brandError } = useBrand();
+  const { brand, loading: brandLoading } = useBrand();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const links = roleLinks(user?.role);
   const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
@@ -58,65 +62,75 @@ export default function Sidebar() {
     navigate('/login');
   }
 
+  // Close sidebar on navigation (mobile)
+  const closeSidebar = () => setOpen(false);
+  // Automatically close when route changes on mobile
+  useState(() => {
+    closeSidebar();
+  }, [location.pathname]);
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <h2>LoyaltyOS</h2>
-        <span>{user?.role?.replace('_', ' ')}</span>
-      </div>
+    <>
+      {/* Hamburger button (visible only on mobile) */}
+      <button className="sidebar-toggle" onClick={() => setOpen(true)} aria-label="Open menu">
+        <Menu size={24} />
+      </button>
 
-      {isBrandManager && !hasBrand && (
-        <div style={{
-          padding: '12px 16px',
-          margin: '0 12px 12px',
-          background: 'var(--warning-bg)',
-          border: '1px solid rgba(234,179,8,0.2)',
-          borderRadius: '6px',
-          display: 'flex',
-          gap: '8px',
-          alignItems: 'flex-start',
-          fontSize: '12px',
-          color: 'var(--warning)'
-        }}>
-          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <strong>No Brand</strong>
-            <p style={{ margin: '2px 0 0 0', opacity: 0.8 }}>Awaiting admin to assign</p>
-          </div>
-        </div>
-      )}
+      {/* Overlay */}
+      <div className={`sidebar-overlay ${open ? 'visible' : ''}`} onClick={closeSidebar} />
 
-      <nav className="sidebar-nav">
-        {links.map(({ to, label, icon: Icon }) => {
-          // Disable brand manager links if no brand assigned (except dashboard)
-          const isDisabled = isBrandManager && !hasBrand && to !== '/brand';
-          
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/admin' || to === '/brand' || to === '/customer'}
-              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}${isDisabled ? ' disabled' : ''}`}
-              style={isDisabled ? { pointerEvents: 'none', opacity: 0.5 } : {}}
-            >
-              <Icon /> {label}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="user-badge">
-          <div className="user-badge-avatar">{initials}</div>
-          <div className="user-badge-info">
-            <div className="user-badge-name">{user?.name}</div>
-            <div className="user-badge-role">{user?.role?.replace('_', ' ')}</div>
-          </div>
-        </div>
-        <button className="nav-link" onClick={handleLogout} style={{ color: 'var(--error)' }}>
-          <LogOut size={16} /> Logout
+      {/* Sidebar drawer */}
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        <button className="sidebar-close" onClick={closeSidebar} aria-label="Close menu">
+          <X size={20} />
         </button>
-      </div>
-    </aside>
+
+        <div className="sidebar-logo">
+          <h2>Loyalty & Rewards Platform</h2>
+          <span>{user?.role?.replace('_', ' ')}</span>
+        </div>
+
+        {isBrandManager && !hasBrand && (
+          <div className="no-brand-warning">
+            <AlertCircle size={14} />
+            <div>
+              <strong>No Brand</strong>
+              <p>Awaiting admin to assign</p>
+            </div>
+          </div>
+        )}
+
+        <nav className="sidebar-nav">
+          {links.map(({ to, label, icon: Icon }) => {
+            const isDisabled = isBrandManager && !hasBrand && to !== '/brand';
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === '/admin' || to === '/brand' || to === '/customer'}
+                className={({ isActive }) => `nav-link${isActive ? ' active' : ''}${isDisabled ? ' disabled' : ''}`}
+                style={isDisabled ? { pointerEvents: 'none', opacity: 0.5 } : {}}
+                onClick={closeSidebar}
+              >
+                <Icon size={18} /> {label}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="user-badge">
+            <div className="user-badge-avatar">{initials}</div>
+            <div className="user-badge-info">
+              <div className="user-badge-name">{user?.name}</div>
+              <div className="user-badge-role">{user?.role?.replace('_', ' ')}</div>
+            </div>
+          </div>
+          <button className="nav-link logout-btn" onClick={handleLogout}>
+            <LogOut size={16} /> Logout
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
