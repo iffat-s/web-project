@@ -32,10 +32,12 @@ import transactionRoutes from "./routes/transactionRoutes.js";
 const app = express();
 app.use(express.json());
 app.use(loggerMiddleware);
+// Allow CORS for local development: reflect the request origin so different
+// frontend dev servers (3000 / 3001 / 5173) can reach the API.
 app.use(cors({
-  origin: 'http://localhost:5173',  // Your Vite frontend URL
-  credentials: true
-}))
+  origin: true,
+  credentials: true,
+}));
 // ================= TOKEN HELPERS =================
 const generateAccessToken = (user) => {
   return jwt.sign(

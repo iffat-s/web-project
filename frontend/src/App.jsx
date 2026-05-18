@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { Toaster } from 'react-hot-toast';
 
 import AppLayout from './components/layout/AppLayout';
+import PublicLanding from './pages/PublicLanding';
 import { LoginPage, RegisterPage } from './pages/auth/AuthPages';
 
 // Admin
@@ -41,7 +42,7 @@ function RequireAuth({ children, role }) {
 
 function DefaultRedirect() {
   const { user } = useSelector(s => s.auth);
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <PublicLanding />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
   if (user.role === 'brand_manager') return <Navigate to="/brand" replace />;
   return <Navigate to="/customer" replace />;
