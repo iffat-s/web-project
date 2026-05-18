@@ -94,7 +94,7 @@ export const getCampaignsByBrand = async (req, res) => {
     
     const campaigns = await campaignRepo.find({
       where: { brand: { id: brandId } },
-      order: { createdAt: "DESC" }
+      order: { startDate: "DESC" }
     });
     
     res.json(campaigns);
