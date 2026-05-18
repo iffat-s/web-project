@@ -53,32 +53,88 @@ const assignTier = async (profile, brandId) => {
     }
     console.log('✅ Profile found:', profile.id);
 
-    // Check rule
-    const rule = await ruleRepo.findOneBy({ brand: { id: brandId }, isActive: true });
-    if (!rule) {
-      console.log('❌ No earning rule for brand:', brandId);
+    // Select applicable earning rule(s) for the brand.
+    // Behavior:
+    // - Only consider rules with `isActive = true`.
+    // - Rule must satisfy date window (if startDate/endDate present).
+    // - Rule must satisfy `minPurchase` (if provided).
+    // - If multiple rules apply, prefer the one with the latest `startDate` (newer rules override older ones). If startDate equal or absent, prefer higher `id`.
+    const now = new Date();
+    const allRules = await ruleRepo.find({ where: { brand: { id: brandId }, isActive: true } });
+    const applicableRules = allRules.filter(r => {
+      // date window check
+      if (r.startDate && new Date(r.startDate) > now) return false;
+      if (r.endDate && new Date(r.endDate) < now) return false;
+      // min purchase check (if provided)
+      if (r.minPurchase && purchaseAmount < r.minPurchase) return false;
+      return true;
+    });
+
+    if (!applicableRules || applicableRules.length === 0) {
+      console.log('❌ No applicable earning rule for brand:', brandId);
       return res.status(404).json({ message: `No active earning rule for brand ${brandId}` });
     }
-    console.log('✅ Rule found:', rule.id, 'points per unit:', rule.pointsPerUnit);
+
+    // Choose the MOST SPECIFIC rule: highest qualifying minPurchase wins.
+    // Tie-breaker: higher id (most recently created) wins.
+    applicableRules.sort((a, b) => {
+      const aMin = a.minPurchase || 0;
+      const bMin = b.minPurchase || 0;
+      if (bMin !== aMin) return bMin - aMin;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+    const rule = applicableRules[0];
+    console.log('✅ Rule selected (highest minPurchase wins):', rule.id, 'type:', rule.ruleType, 'pointsPerUnit:', rule.pointsPerUnit, 'minPurchase:', rule.minPurchase);
 
     // Check campaign
-    const now = new Date();
-    const allCampaigns = await campaignRepo.find({
-      where: { brand: { id: brandId }, isActive: true }
-    });
+    const allCampaigns = await campaignRepo.find({ where: { brand: { id: brandId }, isActive: true } });
     console.log(`Found ${allCampaigns.length} active campaigns for brand ${brandId}`);
-    
-    const campaign = allCampaigns.find(c => {
+
+    // Choose the campaign with the highest bonusMultiplier among campaigns
+    // that are currently valid (startDate <= now <= endDate).
+    const validCampaigns = allCampaigns.filter(c => {
       const startDate = new Date(c.startDate);
       const endDate = new Date(c.endDate);
       const isValid = startDate <= now && endDate >= now;
       console.log(`Campaign ${c.name}: start=${startDate}, end=${endDate}, now=${now}, valid=${isValid}`);
       return isValid;
     });
-    
+
+    let campaign = null;
+    if (validCampaigns.length > 0) {
+      validCampaigns.sort((a, b) => {
+        const aMul = a.bonusMultiplier || 1;
+        const bMul = b.bonusMultiplier || 1;
+        if (bMul !== aMul) return bMul - aMul; // higher multiplier first
+        // tie-breaker: more recent startDate wins
+        const aStart = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const bStart = b.startDate ? new Date(b.startDate).getTime() : 0;
+        if (bStart !== aStart) return bStart - aStart;
+        return (b.id || 0) - (a.id || 0);
+      });
+      campaign = validCampaigns[0];
+    }
+
     const multiplier = campaign ? campaign.bonusMultiplier : 1;
-    const points = Math.floor(purchaseAmount * rule.pointsPerUnit * multiplier);
-    console.log(`✅ Points calculated: ${purchaseAmount} * ${rule.pointsPerUnit} * ${multiplier} = ${points}`);
+
+    // Compute points based on rule type
+    let points = 0;
+    if (rule.ruleType === 'purchase') {
+      // pointsPerUnit is interpreted as points per 1 unit of currency (e.g., per $1)
+      points = Math.floor(purchaseAmount * rule.pointsPerUnit * multiplier);
+    } else if (rule.ruleType === 'flat') {
+      // flat: pointsPerUnit is points per transaction
+      points = Math.floor(rule.pointsPerUnit * multiplier);
+    } else if (rule.ruleType === 'category') {
+      // category rule requires additional category information (not implemented)
+      console.log('❌ Category rule type not implemented in earnPoints');
+      return res.status(400).json({ message: 'Category-based earning rules are not supported by this endpoint' });
+    } else {
+      console.log('❌ Unknown rule type:', rule.ruleType);
+      return res.status(400).json({ message: `Unknown earning rule type: ${rule.ruleType}` });
+    }
+    console.log(`✅ Points calculated using rule ${rule.id}: points = ${points} (multiplier ${multiplier})`);
 
     // Update profile
     profile.totalPoints += points;
