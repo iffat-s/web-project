@@ -119,7 +119,7 @@ export const transactionsApi = {
 
 // ─── LOYALTY PROFILE ─────────────────────────────────────────────────────────
 export const loyaltyApi = {
-  getMe: () => api.get('/loyalty-profiles/me'),
+  getMe: (brandId) => api.get('/loyalty-profiles/me', { params: brandId ? { brandId } : {} }),
   getById: (id) => api.get(`/loyalty-profiles/${id}`),
   getAll: () => api.get('/loyalty-profiles'),
 };

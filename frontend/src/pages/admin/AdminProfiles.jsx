@@ -37,7 +37,7 @@ export default function AdminProfiles() {
                   <td className="text-muted">{p.user?.email}</td>
                   <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(p.totalPoints)}</td>
                   <td>{fmt(p.availablePoints)}</td>
-                  <td><TierBadge tier={p.currentTier} /></td>
+                  <td><TierBadge tier={p.currentTier || 'Bronze'} /></td>
                   <td className="text-muted">{fmtDate(p.joinedAt)}</td>
                 </tr>
               ))}

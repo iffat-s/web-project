@@ -77,18 +77,18 @@ async function seed() {
     console.log(`✅ ${managerNames[i]} Manager created`);
   }
 
-  // Create Customers (5 customers)
+  // Create Customers (100 customers for pagination/testing)
   const customers = [];
-  const customerNames = ["John", "Sarah", "Mike", "Emma", "David"];
-  for (let i = 0; i < 5; i++) {
+  const customerCount = 100;
+  for (let i = 1; i <= customerCount; i++) {
     const customer = userRepo.create({
-      name: `${customerNames[i]} Customer`,
-      email: `${customerNames[i].toLowerCase()}@example.com`,
+      name: `Customer ${i}`,
+      email: `customer${i}@example.com`,
       password: await bcrypt.hash("customer123", 10),
       role: "customer",
     });
     customers.push(await userRepo.save(customer));
-    console.log(`✅ Customer ${customerNames[i]} created`);
+    if (i % 20 === 0) console.log(`✅ ${i} customers created`);
   }
 
   console.log(`\n📊 Total users created: ${users.length + brandManagers.length + customers.length}`);
@@ -116,39 +116,40 @@ async function seed() {
   const profiles = [];
   const tierOptions = ["Bronze", "Silver", "Gold", "Platinum"];
   
+  // Create profiles with distributed lifetime totals so all tiers are represented
+  // Distribution: Bronze (40%), Silver (30%), Gold (20%), Platinum (10%)
   for (let i = 0; i < customers.length; i++) {
+    const r = Math.random();
+    let total = 0;
+    if (r < 0.4) {
+      // Bronze: 0 - 4999
+      total = Math.floor(Math.random() * 5000);
+    } else if (r < 0.7) {
+      // Silver: 5000 - 6999
+      total = 5000 + Math.floor(Math.random() * 2000);
+    } else if (r < 0.9) {
+      // Gold: 7000 - 9999
+      total = 7000 + Math.floor(Math.random() * 3000);
+    } else {
+      // Platinum: 10000 - 15000
+      total = 10000 + Math.floor(Math.random() * 5001);
+    }
+
+    const available = Math.floor(Math.random() * Math.min(total, 8000));
     const profile = profileRepo.create({
       user: customers[i],
-      totalPoints: Math.floor(Math.random() * 2000),
-      availablePoints: Math.floor(Math.random() * 1500),
-      currentTier: tierOptions[i % tierOptions.length],
+      totalPoints: total,
+      availablePoints: available,
+      // Do not seed currentTier; compute it from points at runtime
+      currentTier: null,
     });
     profiles.push(await profileRepo.save(profile));
-    console.log(`✅ Loyalty profile created for ${customers[i].name} (${profile.currentTier} tier)`);
+    if (i % 20 === 0) console.log(`✅ Loyalty profile created for ${customers[i].name}`);
   }
 
-  // ================= TIER LEVELS (Per Brand) =================
+  // ================= TIER LEVELS =================
+  // NOTE: Do not seed TierLevel rows here. Tiers should be derived from customer points dynamically.
   const tiers = [];
-  const tierLevels = [
-    { name: "Bronze", minPoints: 0, perks: ["Basic support", "Welcome offer"] },
-    { name: "Silver", minPoints: 500, perks: ["Priority support", "5% bonus points"] },
-    { name: "Gold", minPoints: 1500, perks: ["VIP support", "10% bonus points", "Birthday reward"] },
-    { name: "Platinum", minPoints: 3000, perks: ["24/7 support", "20% bonus points", "Free shipping", "Exclusive events"] },
-  ];
-
-  for (const brand of brands) {
-    for (const tier of tierLevels) {
-      const newTier = tierRepo.create({
-        name: tier.name,
-        minPoints: tier.minPoints,
-        perks: tier.perks,
-        badgeIcon: `${brand.name}-${tier.name}.png`,
-        brand: brand,
-      });
-      tiers.push(await tierRepo.save(newTier));
-    }
-    console.log(`✅ Tier levels created for ${brand.name}`);
-  }
 
   // ================= EARNING RULES (Per Brand) =================
   const earningRules = [];
@@ -215,63 +216,80 @@ async function seed() {
     console.log(`✅ Rewards created for ${brand.name}`);
   }
 
-  // ================= USER TIERS (Assign tiers to customers per brand) =================
-  for (const profile of profiles) {
-    for (const brand of brands) {
-      // Assign a random tier for each brand
-      const brandTiers = tiers.filter(t => t.brand.id === brand.id);
-      const randomTier = brandTiers[Math.floor(Math.random() * brandTiers.length)];
-      
-      const userTier = userTierRepo.create({
-        loyaltyProfile: profile,
-        tierLevel: randomTier,
-        brand: brand,
-        assignedAt: new Date(),
-      });
-      await userTierRepo.save(userTier);
-    }
-  }
-  console.log(`✅ User tiers assigned`);
+  // ================= USER TIERS =================
+  // Intentionally skip creating user_tiers here. Tiers will be computed at runtime from profile points.
 
   // ================= TRANSACTIONS =================
   const transactionTypes = ["earn", "redeem", "adjust"];
   
-  for (let i = 0; i < 30; i++) {
+  // Create many transactions for pagination/testing (1000 transactions)
+  const txnCount = 1000;
+  for (let i = 0; i < txnCount; i++) {
     const profile = profiles[i % profiles.length];
     const brand = brands[i % brands.length];
     const type = transactionTypes[i % transactionTypes.length];
     const points = type === "earn" ? Math.floor(Math.random() * 500) + 50 : Math.floor(Math.random() * 200) + 20;
-    
+
     const transaction = transactionRepo.create({
       type: type,
       points: type === "earn" ? points : -points,
       purchaseAmount: type === "earn" ? points * 10 : null,
       referenceNo: `TXN${Date.now()}${i}`,
-      createdAt: new Date(Date.now() - i * 86400000), // Spread over last i days
+      createdAt: new Date(Date.now() - i * 3600000), // Spread over last i hours
       loyaltyProfile: profile,
       brand: brand,
       campaign: campaigns[i % campaigns.length],
     });
-    await transactionRepo.save(transaction);
+    if (i % 100 === 0) await transactionRepo.save(transaction);
+    else transactionRepo.save(transaction).catch(() => {});
   }
-  console.log(`✅ Transactions created`);
+  console.log(`✅ ${txnCount} Transactions created`);
 
   // ================= REDEMPTIONS =================
-  for (let i = 0; i < 20; i++) {
+  // Create many redemptions (300)
+  const redemptionCount = 300;
+  for (let i = 0; i < redemptionCount; i++) {
     const profile = profiles[i % profiles.length];
     const reward = rewards[i % rewards.length];
-    const statuses = ["pending", "approved", "fulfilled", "rejected"];
-    
-    const redemption = redemptionRepo.create({
-      pointsSpent: reward.pointsRequired,
-      status: statuses[i % statuses.length],
-      redeemedAt: new Date(Date.now() - i * 86400000),
-      loyaltyProfile: profile,
-      reward: reward,
-    });
-    await redemptionRepo.save(redemption);
+
+    // Safe processing: ensure enough points and stock
+    if (profile.availablePoints >= reward.pointsRequired && reward.stock > 0) {
+      profile.availablePoints -= reward.pointsRequired;
+      reward.stock -= 1;
+      await profileRepo.save(profile);
+      await rewardRepo.save(reward);
+
+      const redemption = redemptionRepo.create({
+        pointsSpent: reward.pointsRequired,
+        status: "approved",
+        redeemedAt: new Date(Date.now() - i * 3600000),
+        loyaltyProfile: profile,
+        reward: reward,
+      });
+      await redemptionRepo.save(redemption);
+
+      const txn = transactionRepo.create({
+        type: "redeem",
+        points: -reward.pointsRequired,
+        referenceNo: `RED${Date.now()}${i}`,
+        createdAt: new Date(Date.now() - i * 3600000),
+        loyaltyProfile: profile,
+        brand: reward.brand,
+      });
+      await transactionRepo.save(txn);
+    } else {
+      // Not enough points or out of stock -> rejected
+      const redemption = redemptionRepo.create({
+        pointsSpent: reward.pointsRequired,
+        status: "rejected",
+        redeemedAt: new Date(Date.now() - i * 3600000),
+        loyaltyProfile: profile,
+        reward: reward,
+      });
+      await redemptionRepo.save(redemption);
+    }
   }
-  console.log(`✅ Redemptions created`);
+  console.log(`✅ ${redemptionCount} Redemptions processed (approved or rejected)`);
 
   console.log("\n🎉 SEEDING COMPLETED SUCCESSFULLY!");
   console.log("\n📝 TEST CREDENTIALS:");

@@ -52,7 +52,16 @@ export default function AdminDashboard() {
                     <td className="text-muted">{p.user?.email}</td>
                     <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(p.totalPoints)}</td>
                     <td>{fmt(p.availablePoints)}</td>
-                    <td><TierBadge tier={p.currentTier} /></td>
+                    <td>
+                      <div><TierBadge tier={p.currentTier || 'Bronze'} /></div>
+                      {p.userTiers && p.userTiers.length > 0 && (
+                        <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {p.userTiers.map(ut => (
+                            <TierBadge key={ut.id} tier={ut.tierLevel?.name} />
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="text-muted">{fmtDate(p.joinedAt)}</td>
                   </tr>
                 ))}
