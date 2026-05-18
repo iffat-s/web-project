@@ -4,32 +4,49 @@ const Transaction = new EntitySchema({
   name: "Transaction",
   tableName: "transactions",
   columns: {
-    id: 
-    { 
-        primary: true, 
-        type: "int", 
-        generated: true 
+    id: {
+      primary: true,
+      type: "int",
+      generated: true
     },
-    amount: { 
-        type: "int" 
+    type: {
+      type: "enum",
+      enum: ["earn", "redeem", "adjust", "expire"]
     },
-    type: { 
-      type: "enum", 
-      enum: ["EARNED", "REDEEMED"] 
+    points: {
+      type: "int"
     },
-    description: { 
-        type: "varchar" 
+    purchaseAmount: {
+      type: "float",
+      nullable: true
+    },
+    referenceNo: {
+      type: "varchar",
+      nullable: true
     },
     createdAt: {
-         type: "timestamp", 
-         createDate: true
-        }
+      type: "timestamp",
+      createDate: true
+    }
   },
   relations: {
-    user: {
-      target: "User",
+    loyaltyProfile: {
+      target: "LoyaltyProfile",
       type: "many-to-one",
       joinColumn: true,
+      inverseSide: "transactions"
+    },
+    brand: {
+      target: "Brand",
+      type: "many-to-one",
+      joinColumn: true,
+      inverseSide: "transactions"
+    },
+    campaign: {
+      target: "Campaign",
+      type: "many-to-one",
+      joinColumn: true,
+      nullable: true,
       inverseSide: "transactions"
     }
   }
