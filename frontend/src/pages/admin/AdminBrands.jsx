@@ -72,7 +72,16 @@ export default function AdminBrands() {
   async function handleAssign() {
     setSaving(true);
     try {
-      const r = await brandsApi.assignManager(assignModal.id, assignForm.managerId ? Number(assignForm.managerId) : null);
+      // Log payload for debugging
+      const payload = { managerId: assignForm.managerId ? Number(assignForm.managerId) : null };
+      console.log('Assigning manager payload:', payload, 'brandId:', assignModal.id);
+
+      // Optimistic UI: if unassigning, clear manager locally immediately
+      if (payload.managerId === null) {
+        setBrands(p => p.map(x => x.id === assignModal.id ? { ...x, manager: null } : x));
+      }
+
+      const r = await brandsApi.assignManager(assignModal.id, payload.managerId);
       setBrands(p => p.map(x => x.id === assignModal.id ? r.data : x));
       toast.success('Brand manager assigned');
       setAssignModal(null);
@@ -89,6 +98,20 @@ export default function AdminBrands() {
     setDeleteId(null);
     toast.success('Brand deleted');
     await load();
+  }
+
+  async function handleUnassign(brandId) {
+    setSaving(true);
+    try {
+      // use dedicated API helper to unassign
+      const r = await brandsApi.unassignManager(brandId);
+      setBrands(p => p.map(x => x.id === brandId ? r.data : x));
+      toast.success('Brand manager unassigned');
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Error');
+    }
+    setSaving(false);
   }
 
   if (loading) return <LoadingPage />;
@@ -116,6 +139,14 @@ export default function AdminBrands() {
                   <td>
                     <div className="flex gap-2">
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openAssign(b)} title="Assign Manager"><Users size={13} /></button>
+                      {b.manager && (
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => {
+                          if (!window.confirm('Unassign manager from this brand?')) return;
+                          handleUnassign(b.id);
+                        }} title="Unassign Manager" disabled={saving}>
+                          <Users size={13} />
+                        </button>
+                      )}
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(b)}><Pencil size={13} /></button>
                       <button className="btn btn-danger btn-icon btn-sm" onClick={() => setDeleteId(b.id)}><Trash2 size={13} /></button>
                     </div>

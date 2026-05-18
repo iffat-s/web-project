@@ -38,7 +38,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Allow callers to opt-out of automatic auth handling by setting `config.skipAuthHandling = true`
+    if (err.response?.status === 401 && !err.config?.skipAuthHandling) {
       sessionStorage.removeItem('accessToken');
       sessionStorage.removeItem('user');
       window.location.href = '/login';
@@ -73,6 +74,8 @@ export const brandsApi = {
   update: (id, data) => api.put(`/brands/${id}`, data),
   delete: (id) => api.delete(`/brands/${id}`),
   assignManager: (id, managerId) => api.put(`/brands/${id}/assign-manager`, { managerId }),
+  // unassignManager opts out of automatic auth handling so the UI can handle any 401s
+  unassignManager: (id) => api.put(`/brands/${id}/assign-manager`, { managerId: null }, { skipAuthHandling: true }),
   getUnassignedManagers: () => api.get('/brands/unassigned-managers'),
 };
 

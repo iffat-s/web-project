@@ -135,6 +135,20 @@ const setupRoutes = (userRepository) => {
         return res.status(400).json({ message: "Invalid credentials" });
       }
 
+      // Prevent unassigned brand managers from logging in
+      if (user.role === 'brand_manager') {
+        try {
+          const brandRepo = AppDataSource.getRepository('Brand');
+          const brand = await brandRepo.findOneBy({ managerId: user.id });
+          if (!brand) {
+            return res.status(403).json({ message: 'Brand manager account is unassigned and cannot login' });
+          }
+        } catch (e) {
+          // if anything goes wrong with brand lookup, deny login conservatively
+          return res.status(403).json({ message: 'Brand manager account is unassigned and cannot login' });
+        }
+      }
+
       const accessToken = generateAccessToken(user);
       const refreshToken = generateRefreshToken(user);
 
@@ -376,15 +390,15 @@ const setupRoutes = (userRepository) => {
   // ================= MOUNT ROUTE MODULES ==================
   // All protected routes require authentication
 
-  app.use("/brands", authMiddleware, brandRoutes);
-  app.use("/brands/:brandId/campaigns", authMiddleware, campaignRoutes);
-  app.use("/dashboard", authMiddleware, dashboardRoutes);
-  app.use("/brands/:brandId/rules", authMiddleware, earningruleRoutes);
-  app.use("/loyalty-profiles", authMiddleware, loyaltyprofileRoutes);
-  app.use("/redemptions", authMiddleware, redemptionRoutes);
-  app.use("/brands/:brandId/rewards", authMiddleware, rewardRoutes);
-  app.use("/brands/:brandId/tiers", authMiddleware, tierlevelRoutes);
-  app.use("/transactions", authMiddleware, transactionRoutes);
+  app.use("/brands", brandRoutes);
+  app.use("/brands/:brandId/campaigns", campaignRoutes);
+  app.use("/dashboard", dashboardRoutes);
+  app.use("/brands/:brandId/rules", earningruleRoutes);
+  app.use("/loyalty-profiles", loyaltyprofileRoutes);
+  app.use("/redemptions", redemptionRoutes);
+  app.use("/brands/:brandId/rewards", rewardRoutes);
+  app.use("/brands/:brandId/tiers", tierlevelRoutes);
+  app.use("/transactions", transactionRoutes);
 
   app.use(errorMiddleware);
 };

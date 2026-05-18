@@ -187,7 +187,13 @@ export const assignBrandManager = async (req, res) => {
       }
     }
 
-    brand.managerId = managerId || null;
+    if (managerId) {
+      brand.managerId = managerId;
+    } else {
+      // explicitly clear relation and FK to ensure TypeORM persists null
+      brand.manager = null;
+      brand.managerId = null;
+    }
     await brandRepo.save(brand);
 
     const result = await brandRepo.findOne({
