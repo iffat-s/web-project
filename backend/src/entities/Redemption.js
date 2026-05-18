@@ -15,7 +15,7 @@ const Redemption = new EntitySchema({
     status: {
       type: "enum",
       enum: ["pending", "approved", "rejected", "fulfilled", "redeemed"],
-      default: "redeemed"
+      default: "pending"
     },
     redeemedAt: {
       type: "timestamp",

@@ -83,8 +83,13 @@ export const getCampaignsByBrand = async (req, res) => {
     }
     
     // Brand manager can only access their own brand
-    if (req.user.role === 'brand_manager' && brand.manager.id !== req.user.id) {
-      return res.status(403).json({ message: "You don't have access to this brand's campaigns" });
+    if (req.user.role === 'brand_manager') {
+      if (!brand.manager || !brand.manager.id) {
+        return res.status(403).json({ message: "This brand has no assigned manager" });
+      }
+      if (brand.manager.id !== req.user.id) {
+        return res.status(403).json({ message: "You don't have access to this brand's campaigns" });
+      }
     }
     
     const campaigns = await campaignRepo.find({
@@ -115,8 +120,13 @@ export const createCampaign = async (req, res) => {
     }
     
     // Brand manager can only create campaigns for their own brand
-    if (req.user.role === 'brand_manager' && brand.manager.id !== req.user.id) {
-      return res.status(403).json({ message: "You don't own this brand" });
+    if (req.user.role === 'brand_manager') {
+      if (!brand.manager || !brand.manager.id) {
+        return res.status(403).json({ message: "This brand has no assigned manager" });
+      }
+      if (brand.manager.id !== req.user.id) {
+        return res.status(403).json({ message: "You don't own this brand" });
+      }
     }
     
     // Validate dates
@@ -163,8 +173,13 @@ export const updateCampaign = async (req, res) => {
     }
     
     // Brand manager can only update their own brand's campaigns
-    if (req.user.role === 'brand_manager' && campaign.brand.manager.id !== req.user.id) {
-      return res.status(403).json({ message: "You don't own this campaign" });
+    if (req.user.role === 'brand_manager') {
+      if (!campaign.brand.manager || !campaign.brand.manager.id) {
+        return res.status(403).json({ message: "This brand has no assigned manager" });
+      }
+      if (campaign.brand.manager.id !== req.user.id) {
+        return res.status(403).json({ message: "You don't own this campaign" });
+      }
     }
     
     // Don't allow updating brandId
@@ -194,8 +209,13 @@ export const toggleCampaign = async (req, res) => {
     }
     
     // Brand manager can only toggle their own brand's campaigns
-    if (req.user.role === 'brand_manager' && campaign.brand.manager.id !== req.user.id) {
-      return res.status(403).json({ message: "You don't own this campaign" });
+    if (req.user.role === 'brand_manager') {
+      if (!campaign.brand.manager || !campaign.brand.manager.id) {
+        return res.status(403).json({ message: "This brand has no assigned manager" });
+      }
+      if (campaign.brand.manager.id !== req.user.id) {
+        return res.status(403).json({ message: "You don't own this campaign" });
+      }
     }
     
     campaign.isActive = !campaign.isActive;

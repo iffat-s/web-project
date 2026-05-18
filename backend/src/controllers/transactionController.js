@@ -88,6 +88,8 @@ const assignTier = async (profile, brandId) => {
 
     // Assign tier
     await assignTier(profile, brandId);
+    // Persist any changes made to profile (currentTier)
+    await profileRepo.save(profile);
     console.log('✅ Tier assigned');
 
     // Create transaction
