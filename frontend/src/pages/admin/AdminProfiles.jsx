@@ -37,18 +37,7 @@ export default function AdminProfiles() {
                   <td className="text-muted">{p.user?.email}</td>
                   <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(p.totalPoints)}</td>
                   <td>{fmt(p.availablePoints)}</td>
-                  <td>
-                    {(() => {
-                      if (p.currentTier) return <TierBadge tier={p.currentTier} />;
-                      // derive tier from totalPoints when currentTier is missing
-                      const pts = p.totalPoints || 0;
-                      let derived = 'Bronze';
-                      if (pts >= 10000) derived = 'Platinum';
-                      else if (pts >= 7000) derived = 'Gold';
-                      else if (pts >= 5000) derived = 'Silver';
-                      return <TierBadge tier={derived} />;
-                    })()}
-                  </td>
+                  <td><TierBadge tier={p.currentTier || 'Bronze'} /></td>
                   <td className="text-muted">{fmtDate(p.joinedAt)}</td>
                 </tr>
               ))}

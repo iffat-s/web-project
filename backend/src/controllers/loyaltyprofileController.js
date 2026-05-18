@@ -117,8 +117,49 @@ export const getMyProfile = async (req, res) => {
  
 export const getAllProfiles = async (req, res) => {
   try {
-    const profiles = await profileRepo.find({ relations: ["user"] });
-    res.json(profiles);
+    // Load profiles with relations needed to compute tier reliably
+    const profiles = await profileRepo.find({ relations: ["user", "userTiers", "userTiers.tierLevel", "transactions", "transactions.brand"] });
+
+    // Load TierLevel thresholds once
+    let allTiers = await tierRepo.find();
+    const unique = {};
+    (allTiers || []).forEach((t) => { if (t && t.name) { if (!unique[t.name] || unique[t.name].minPoints > t.minPoints) unique[t.name] = { name: t.name, minPoints: t.minPoints }; }});
+    const defaults = [
+      { name: 'Bronze', minPoints: 0 },
+      { name: 'Silver', minPoints: 5000 },
+      { name: 'Gold', minPoints: 7000 },
+      { name: 'Platinum', minPoints: 10000 },
+    ];
+    defaults.forEach(d => { if (!unique[d.name] || unique[d.name].minPoints > d.minPoints) unique[d.name] = { name: d.name, minPoints: d.minPoints }; });
+    const sorted = Object.values(unique).sort((a,b) => a.minPoints - b.minPoints);
+
+    // For each profile, compute current tier and persist if changed
+    const result = [];
+    for (const profile of profiles) {
+      let computedCurrent = profile.currentTier;
+      if (profile.userTiers && profile.userTiers.length > 0) {
+        const achieved = profile.userTiers.map(ut => ut.tierLevel).filter(Boolean).sort((a,b) => b.minPoints - a.minPoints)[0];
+        if (achieved) computedCurrent = achieved.name;
+      }
+
+      if (!computedCurrent) {
+        const earned = sorted.filter(t => profile.totalPoints >= t.minPoints).sort((a,b) => b.minPoints - a.minPoints)[0];
+        computedCurrent = earned ? earned.name : 'Bronze';
+      }
+
+      if (profile.currentTier !== computedCurrent) {
+        try {
+          profile.currentTier = computedCurrent;
+          await profileRepo.save(profile);
+        } catch (err) {
+          console.error('Failed to persist computed currentTier for profile', profile.id, err.message);
+        }
+      }
+
+      result.push({ ...profile, currentTier: computedCurrent });
+    }
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
