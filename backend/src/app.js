@@ -205,7 +205,11 @@ const setupRoutes = (userRepository) => {
 
   app.get("/users", authMiddleware, roleMiddleware("admin"), async (req, res, next) => {
     try {
-      const users = await userRepository.find();
+      const users = await userRepository.find(
+        {
+        relations: ["brand"]  
+        }
+      );
 
       const safe = users.map(({ password, refreshToken, ...u }) => u);
 
