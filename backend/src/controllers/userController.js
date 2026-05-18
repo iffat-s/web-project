@@ -76,7 +76,8 @@ class UserController {
   getUsers = async (req, res) => {
     try {
       const users = await userRepo.find({
-        relations: ["loyaltyProfile"]
+        relations: ["loyaltyProfile"],
+        order: { id: "ASC" }
       });
 
       return res.status(200).json({
@@ -163,12 +164,66 @@ class UserController {
         });
       }
 
-      await userRepo.remove(user);
+      // Perform safe deletion in a transaction: remove dependent rows and nullify brand manager
+      await AppDataSource.transaction(async (manager) => {
+        const uid = Number(req.params.id);
 
-      return res.status(200).json({
-        success: true,
-        message: "User deleted"
+        // 1) Find loyalty profile id for this user (try common column namings)
+        let profileRows = [];
+        try {
+          profileRows = await manager.query('SELECT id FROM loyalty_profiles WHERE "userId" = $1', [uid]);
+        } catch (e) {
+          try {
+            profileRows = await manager.query('SELECT id FROM loyalty_profiles WHERE user_id = $1', [uid]);
+          } catch (e2) {
+            profileRows = [];
+          }
+        }
+
+        if (profileRows && profileRows.length) {
+          const pid = profileRows[0].id;
+
+          // Helper to try deleting from tables with possible fk column names
+          const tryDeleteChildren = async (table, colCandidates) => {
+            for (const col of colCandidates) {
+              try {
+                await manager.query(`DELETE FROM ${table} WHERE "${col}" = $1`, [pid]);
+                return;
+              } catch (err) {
+                // try next candidate
+              }
+            }
+          };
+
+          // Delete dependent records referencing the loyalty profile
+          await tryDeleteChildren('redemptions', ['loyaltyProfileId', 'loyalty_profile_id']);
+          await tryDeleteChildren('transactions', ['loyaltyProfileId', 'loyalty_profile_id']);
+          await tryDeleteChildren('user_tiers', ['loyaltyProfileId', 'loyalty_profile_id']);
+
+          // Finally delete the loyalty profile itself
+          try {
+            await manager.query('DELETE FROM loyalty_profiles WHERE id = $1', [pid]);
+          } catch (err) {
+            // ignore and continue
+          }
+        }
+
+        // 2) If this user is a brand manager, nullify the brand.manager reference
+        try {
+          await manager.query('UPDATE brands SET "managerId" = NULL WHERE "managerId" = $1', [uid]);
+        } catch (e) {
+          try {
+            await manager.query('UPDATE brands SET manager_id = NULL WHERE manager_id = $1', [uid]);
+          } catch (err) {
+            // ignore
+          }
+        }
+
+        // 3) Delete the user row
+        await manager.query('DELETE FROM users WHERE id = $1', [uid]);
       });
+
+      return res.status(200).json({ success: true, message: 'User deleted' });
     } catch (error) {
       return res.status(500).json({
         success: false,

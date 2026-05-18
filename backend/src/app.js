@@ -205,11 +205,10 @@ const setupRoutes = (userRepository) => {
 
   app.get("/users", authMiddleware, roleMiddleware("admin"), async (req, res, next) => {
     try {
-      const users = await userRepository.find(
-        {
-        relations: ["brand"]  
-        }
-      );
+      const users = await userRepository.find({
+        relations: ["brand"],
+        order: { id: "ASC" }
+      });
 
       const safe = users.map(({ password, refreshToken, ...u }) => u);
 
@@ -297,15 +296,60 @@ const setupRoutes = (userRepository) => {
         return res.status(400).json({ message: "Cannot delete your own account" });
       }
 
-      // Delete associated loyalty profile if exists
-      const loyaltyProfileRepo = AppDataSource.getRepository(LoyaltyProfile);
-      const profile = await loyaltyProfileRepo.findOneBy({ user: { id: userId } });
-      if (profile) {
-        await loyaltyProfileRepo.remove(profile);
-      }
+      // Perform safe deletion in a transaction to avoid foreign key errors
+      await AppDataSource.transaction(async (manager) => {
+        // 1) Find loyalty profile id for this user (try different column namings)
+        let profileRows = [];
+        try {
+          profileRows = await manager.query('SELECT id FROM loyalty_profiles WHERE "userId" = $1', [userId]);
+        } catch (e) {
+          try {
+            profileRows = await manager.query('SELECT id FROM loyalty_profiles WHERE user_id = $1', [userId]);
+          } catch (e2) {
+            profileRows = [];
+          }
+        }
 
-      await userRepository.remove(user);
-      
+        if (profileRows && profileRows.length) {
+          const pid = profileRows[0].id;
+
+          const tryDeleteChildren = async (table, colCandidates) => {
+            for (const col of colCandidates) {
+              try {
+                await manager.query(`DELETE FROM ${table} WHERE "${col}" = $1`, [pid]);
+                return;
+              } catch (err) {
+                // try next candidate
+              }
+            }
+          };
+
+          await tryDeleteChildren('redemptions', ['loyaltyProfileId', 'loyalty_profile_id']);
+          await tryDeleteChildren('transactions', ['loyaltyProfileId', 'loyalty_profile_id']);
+          await tryDeleteChildren('user_tiers', ['loyaltyProfileId', 'loyalty_profile_id']);
+
+          try {
+            await manager.query('DELETE FROM loyalty_profiles WHERE id = $1', [pid]);
+          } catch (err) {
+            // ignore
+          }
+        }
+
+        // 2) Nullify brand manager link if present
+        try {
+          await manager.query('UPDATE brands SET "managerId" = NULL WHERE "managerId" = $1', [userId]);
+        } catch (e) {
+          try {
+            await manager.query('UPDATE brands SET manager_id = NULL WHERE manager_id = $1', [userId]);
+          } catch (err) {
+            // ignore
+          }
+        }
+
+        // 3) Delete the user
+        await manager.query('DELETE FROM users WHERE id = $1', [userId]);
+      });
+
       res.json({ message: "User deleted successfully" });
     } catch (err) {
       next(err);
