@@ -78,7 +78,7 @@ export function RegisterPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <h1>LoyaltyOS</h1>
+          <h1>Loyalty & Rewards Platform</h1>
           <p>Create your account</p>
         </div>
         <form onSubmit={handleSubmit}>
