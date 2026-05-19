@@ -114,6 +114,6 @@ web-project/
 ├── backend/
 │   └── .env
 ├── frontend/
-│   └── .env.local
+│   └── .env
 └── README.md
 ```
