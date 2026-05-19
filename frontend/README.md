@@ -1,49 +1,69 @@
-# LoyaltyOS Frontend
+# Customer Loyalty & Rewards Platform - Frontend
 
-React frontend for the Loyalty Program System.
+React + Vite frontend for the Customer Loyalty & Rewards Platform.
 
-## Setup
+## ✨ Features
+
+- User registration and login
+- Role-based dashboards (Admin, Brand Manager, Customer)
+- Points earning & reward redemption
+- Campaign browsing and loyalty profile
+- Responsive and modern UI
+
+## 🛠 Tech Stack
+
+- React + Vite
+- React Router
+- Axios (for API calls)
+- Context API / State Management
+
+---
+
+## 🚀 Frontend Setup
+
+### 1. Navigate to Frontend Folder
+
+```bash
+cd frontend
+```
+
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-Create a `.env` file:
-```
+### 3. Create Environment File
+
+Create a file named `.env.local` in the `frontend/` folder:
+
+```env
 REACT_APP_API_URL=http://localhost:3000
+PORT=5173
 ```
 
-## Development
+> **Note**: Change `REACT_APP_API_URL` if your backend is running on a different port or URL.
+
+### 4. Start the Development Server
 
 ```bash
 npm start
 ```
 
-App runs on http://localhost:3000 (backend) and http://localhost:3000 for Vite (if you migrate).
+Frontend will run at **http://localhost:5173**
 
-> **Note**: The backend CORS is set to `http://localhost:5173`. If using CRA (port 3000), either:
-> - Change CRA port: add `PORT=5173` to `.env`
-> - Or update backend CORS to include `http://localhost:3000`
+---
 
-Add to `.env`:
-```
-PORT=5173
-REACT_APP_API_URL=http://localhost:3000
-```
+## How to Connect with Backend
 
-## Roles
+Make sure:
 
-| Role | Login → | Access |
-|------|---------|--------|
-| `admin` | `/admin` | Full system: users, brands, transactions, redemptions, profiles |
-| `brand_manager` | `/brand` | Campaigns, rewards, tiers, rules, redemptions |
-| `customer` | `/customer` | Profile, earn points, browse rewards, redemptions |
+- Backend is running on `http://localhost:3000`
+- `REACT_APP_API_URL` in `.env.local` matches the backend URL
+- CORS is properly configured in the backend
 
-## Tech Stack
+---
 
-- React 18 + React Router v6
-- Redux Toolkit (auth state)
-- TanStack Table (sortable, paginated tables)
-- Axios (API client with interceptors)
-- react-hot-toast (notifications)
-- Lucide React (icons)
+**Made with ❤️**
+
+---
