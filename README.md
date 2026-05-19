@@ -46,9 +46,6 @@ DB_NAME=your_database_name_here
 # JWT Secrets (Change these to strong random strings)
 JWT_SECRET=your_super_long_random_jwt_secret_here
 JWT_REFRESH_SECRET=your_super_long_random_refresh_secret_here
-
-# Frontend URL (for CORS)
-FRONTEND_URL=http://localhost:5173
 ```
 
 **Start Backend:**
